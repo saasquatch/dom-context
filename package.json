@@ -1,6 +1,6 @@
 {
   "name": "dom-context",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "A context library for web components and vanilla dom",
   "source": "src/index.ts",
   "main": "dist/index.js",

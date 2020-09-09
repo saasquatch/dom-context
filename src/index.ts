@@ -18,15 +18,16 @@ export const enum ListenerConnectionStatus {
   TIMEOUT = "Timeout",
 }
 
-export class RequestEvent<T> extends CustomEvent<Detail<T>> {
-  constructor(context: string, promiseFactory: Detail<T>) {
-    super(context, {
-      bubbles: true,
-      cancelable: true,
-      detail: promiseFactory,
-    });
-  }
+function newRequestEvent<T>(context: string, promiseFactory: Detail<T>) {
+  return new CustomEvent<Detail<T>>(context, {
+    bubbles: true,
+    cancelable: true,
+    detail: promiseFactory,
+  });
 }
+
+export type RequestEvent<T> = CustomEvent<Detail<T>>;
+
 
 export function createContext<T>(name: string, _initialState?: T) {
   const Provider = class extends ContextProvider<T> {
@@ -125,7 +126,7 @@ export class ContextListener<T> {
     const getStatus = () => this.status;
     const tryConnect = () => {
       if (getStatus() !== ListenerConnectionStatus.CONNECTED) {
-        const event = new RequestEvent("name", {
+        const event = newRequestEvent(this.contextName, {
           onConnect: this.onConnect,
           onChange: this.onChange,
           onDisconnect: this.onDisconnect,
