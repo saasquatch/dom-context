@@ -1,10 +1,25 @@
 type Resolve<T> = (value?: T | PromiseLike<T>) => void;
 
+type Detail<T> = {
+  onConnect: PromiseFactory<T>;
+  onChange: Callback<T>;
+  onDisconnect: () => unknown;
+};
+
 type PromiseFactory<T> = (val: T) => Promise<unknown>;
 type Callback<T> = (val: T) => unknown;
 
-export class RequestEvent<T> extends CustomEvent<PromiseFactory<T>> {
-  constructor(context: string, promiseFactory: PromiseFactory<T>) {
+const POLLING = 100;
+
+export const enum ListenerConnectionStatus {
+  INITIAL = "Initial",
+  CONNECTING = "Connecting",
+  CONNECTED = "Connected",
+  TIMEOUT = "Timeout",
+}
+
+export class RequestEvent<T> extends CustomEvent<Detail<T>> {
+  constructor(context: string, promiseFactory: Detail<T>) {
     super(context, {
       bubbles: true,
       cancelable: true,
@@ -37,7 +52,7 @@ export function createContext<T>(name: string, _initialState?: T) {
     }: {
       element: HTMLElement;
       onChange: (next: T) => unknown;
-      onStatus?: (status: string) => unknown;
+      onStatus?: Callback<ListenerConnectionStatus>;
     }) {
       super({
         element,
@@ -55,75 +70,87 @@ export function createContext<T>(name: string, _initialState?: T) {
 
 export class ContextListener<T> {
   contextName: string;
-
-  promise: Promise<T> = new Promise((resolve) => {
-    this.resolvePromise = resolve;
-  });
-  resolvePromise: Resolve<T>;
-  connected: boolean = false;
-
-  _status: string;
-  onChange: (next: T) => unknown;
-  onStatus: (status: string) => unknown;
   element: HTMLElement;
-  // context:T;
+
+  resolvePromise?: Resolve<T>;
+
+  _status: ListenerConnectionStatus = ListenerConnectionStatus.INITIAL;
+  _onChange: Callback<T>;
+  onStatus?: Callback<ListenerConnectionStatus>;
 
   constructor({
     contextName,
     element,
     onChange,
     onStatus,
-  }: BaseProps & { onChange: Callback<T>; onStatus?: Callback<string> }) {
+  }: BaseProps & {
+    onChange: Callback<T>;
+    onStatus?: Callback<ListenerConnectionStatus>;
+  }) {
     this.contextName = contextName;
     this.element = element;
-    this.onChange = onChange;
+    this._onChange = onChange;
     this.onStatus = onStatus;
   }
 
-  set status(next: string) {
+  set status(next: ListenerConnectionStatus) {
     this._status = next;
     this.onStatus(next);
   }
+  get status() {
+    return this._status;
+  }
 
-  setContext = async (context: T) => {
-    this.status = "Connected" + context;
-    if (!this.connected) {
-      this.connected = true;
-    }
-    // this.context = context;
-    this.onChange(context);
-    return this.promise;
+  onChange = (context: T) => {
+    this._onChange(context);
+  };
+
+  onConnect = async (context: T) => {
+    this.status = ListenerConnectionStatus.CONNECTED;
+    this._onChange(context);
+    return new Promise((resolve) => {
+      this.resolvePromise = resolve;
+    });
+  };
+
+  onDisconnect = () => {
+    this.status = ListenerConnectionStatus.CONNECTING;
+    this.start();
   };
 
   start() {
     let attempts = 0;
-    this.status = "Attempt " + attempts;
+    this.status = ListenerConnectionStatus.CONNECTING;
+    let interval;
+    const getStatus = () => this.status;
     const tryConnect = () => {
-      if (!this.connected) {
-        attempts++;
-
-        const event = new RequestEvent("name", this.setContext);
+      if (getStatus() !== ListenerConnectionStatus.CONNECTED) {
+        const event = new RequestEvent("name", {
+          onConnect: this.onConnect,
+          onChange: this.onChange,
+          onDisconnect: this.onDisconnect,
+        });
         this.element.dispatchEvent(event);
-        console.log("Fired event", event, "on", this.element);
 
-        // this.mountEmitter.emit(this.setContext);
-        if (attempts < 10) {
-          this.status = "Attempt " + attempts;
-          setTimeout(tryConnect, 100);
-        } else {
-          this.status = "timeout";
-          throw new Error(
-            `${this.constructor.name} Gave up trying to connect to provider`
-          );
+        if (getStatus() !== ListenerConnectionStatus.CONNECTED) {
+          attempts++;
+          if (attempts >= 10) {
+            clearInterval(interval);
+
+            this.status = ListenerConnectionStatus.TIMEOUT;
+            throw new Error(`Gave up trying to connect to provider`);
+          }
+        } else if (getStatus() === ListenerConnectionStatus.CONNECTED) {
+          clearInterval(interval);
         }
       }
     };
 
     tryConnect();
-    setTimeout(tryConnect, 100);
+    interval = setInterval(tryConnect, POLLING);
   }
   stop() {
-    this.resolvePromise();
+    this.resolvePromise && this.resolvePromise();
   }
 }
 
@@ -137,7 +164,7 @@ export class ContextProvider<T> {
   current: T;
 
   contextName: string;
-  consumers: PromiseFactory<unknown>[] = [];
+  consumers: Detail<T>[] = [];
 
   constructor({
     contextName,
@@ -151,7 +178,7 @@ export class ContextProvider<T> {
 
   set context(next: T) {
     this.current = next;
-    this.consumers.forEach((consumer) => consumer(next));
+    this.consumers.forEach((consumer) => consumer.onChange(next));
   }
 
   get context() {
@@ -167,20 +194,18 @@ export class ContextProvider<T> {
   stop() {
     this.element.removeEventListener(this.contextName, this.mountConsumer);
 
-    // When a component unloads, it passes off responsibility to it's parent enclosing elements
     this.consumers.map((consumer) => {
-      const event = new RequestEvent(this.contextName, consumer);
-      this.element.dispatchEvent(event);
+      // When a component unloads, it passes off responsibility for re-connecting to a parent back to the child
+      consumer.onDisconnect();
     });
   }
 
-  async mountConsumer(event: CustomEvent) {
+  async mountConsumer(event: RequestEvent<T>) {
     // This supports nested providers by preventing parent elements from receing the request to subscribe
-    console.log("Saw event", event);
     event.stopPropagation();
     this.consumers = [...this.consumers, event.detail];
 
-    await event.detail(this.current);
+    await event.detail.onConnect(this.current);
 
     this.consumers = removeElement(this.consumers, event.detail);
   }
