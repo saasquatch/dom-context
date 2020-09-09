@@ -1,0 +1,27 @@
+{
+  "name": "dom-context",
+  "version": "0.0.1",
+  "description": "A context library for web components and vanilla dom",
+  "source": "src/index.ts",
+  "main": "dist/index.js",
+  "module": "dist/index.module.js",
+  "unpkg": "dist/index.umd.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "microbundle",
+    "dev": "microbundle watch"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/saasquatch/dom-context.git"
+  },
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/saasquatch/dom-context/issues"
+  },
+  "homepage": "https://github.com/saasquatch/dom-context#readme",
+  "devDependencies": {
+    "microbundle": "^0.12.3"
+  }
+}
