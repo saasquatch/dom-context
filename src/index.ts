@@ -1,24 +1,118 @@
-type Resolve<T> = (value?: T | PromiseLike<T>) => void;
-
-type Detail<T> = {
+/**
+ * This is the core API for dom-context.
+ *
+ * This sets up the contract between how Providers and Listeners should interact.
+ *
+ * When a Listener fires an event, it includes a `detail` as described here.
+ *
+ * When a Provider receives the event, it should follow this contract:
+ *
+ *  - `onConnect` should be called immediately and awaited to handle listener disconnects
+ *  - `onChange`  should be called whenever the context value changes
+ *  - `onDisconnect` should be called when the provider disconnects
+ *
+ * Everything in this library is just built around simplifying the creation, dispatching and handling of these events,
+ * but the foundation is that mutiple libraries can interact via this core interface without needing to use
+ * the `dom-context` package directly.
+ */
+export type Detail<T> = {
+  /**
+   * Should be called by the Provider to let the Listener know it is connected.
+   * 
+   * The Provider should await the return promise to handle listener disconnects
+   */
   onConnect: PromiseFactory<T>;
-  onChange: Callback<T>;
+  /**
+   * should be called whenever the context value changes
+   */
+  onChange: OnChange<T>;
+  /**
+   * should be called when the provider disconnects
+   */
   onDisconnect: () => unknown;
 };
 
-type PromiseFactory<T> = (val: T) => Promise<unknown>;
-type Callback<T> = (val: T) => unknown;
+/**
+ * The core API spec for dom-context events. See Detail<T>
+ */
+export type RequestEvent<T> = CustomEvent<Detail<T>>;
+
+//
+//  Helper Types
+//
+
+export type Resolve<T> = (value?: T | PromiseLike<T>) => void;
+export type PromiseFactory<T> = (val: T) => Promise<unknown>;
+export type OnChange<T> = (val: T) => unknown;
+export type Accessor<T> = () => T;
+export type AccessorOrValue<T> = Accessor<T> | T;
+
+/**
+ * The base options needed by both Providers and Listeners
+ */
+export type BaseOptions = {
+  contextName: string;
+  element: AccessorOrValue<HTMLElement>;
+};
+/**
+ * Options needed for creating a listener
+ */
+export type ListenerOptions<T> = BaseOptions & {
+  /**
+   * Called whenever a context changes, including for initial value
+   */
+  onChange: OnChange<T>;
+  /**
+   * Called whenever the listener status changes.
+   */
+  onStatus?: OnChange<ListenerConnectionStatus>;
+
+  /**
+   * Polling frequency
+   */
+  pollingMs?: AccessorOrValue<number>;
+  /**
+   * Number of attempts
+   */
+  attempts?: AccessorOrValue<number>;
+};
+
+/**
+ * Options needed for creating a Provider
+ */
+export type ProviderOptions<T> = BaseOptions & {
+  /**
+   * Initial state for the provider (optional)
+   *
+   * Can be a value or an accessor function. When it is an accessor function,
+   * then it will be called anytime a listener connects
+   */
+  initialState?: AccessorOrValue<T>;
+};
 
 const POLLING = 100;
+const ATTEMPTS = 10;
 
 export const enum ListenerConnectionStatus {
+  /**
+   * A fresh listener that hasn't tried connecting yet
+   */
   INITIAL = "Initial",
+  /**
+   * A listener that is trying to connect or to re-connect
+   */
   CONNECTING = "Connecting",
+  /**
+   * A listener that is connected to a provider
+   */
   CONNECTED = "Connected",
+  /**
+   * A listener that was unable to connect to a provider in the number of attempts
+   */
   TIMEOUT = "Timeout",
 }
 
-function newRequestEvent<T>(context: string, promiseFactory: Detail<T>) {
+export function createEvent<T>(context: string, promiseFactory: Detail<T>) {
   return new CustomEvent<Detail<T>>(context, {
     bubbles: true,
     cancelable: true,
@@ -26,40 +120,30 @@ function newRequestEvent<T>(context: string, promiseFactory: Detail<T>) {
   });
 }
 
-export type RequestEvent<T> = CustomEvent<Detail<T>>;
-
-
-export function createContext<T>(name: string, _initialState?: T) {
+/**
+ * Create a Context object to simplify creating Provider and Listeners
+ *
+ * @param name - the context name
+ * @param initialState - initial state for all providers
+ */
+export function createContext<T>(
+  name: string,
+  initialState?: AccessorOrValue<T>
+) {
   const Provider = class extends ContextProvider<T> {
-    constructor({
-      element,
-      initialState = _initialState,
-    }: {
-      element: HTMLElement;
-      initialState?: T;
-    }) {
+    constructor(options: Omit<ProviderOptions<T>, "contextName">) {
       super({
-        element,
+        ...options,
         contextName: name,
-        initialState,
+        initialState: options.initialState || initialState,
       });
     }
   };
   const Listener = class extends ContextListener<T> {
-    constructor({
-      element,
-      onChange,
-      onStatus,
-    }: {
-      element: HTMLElement;
-      onChange: (next: T) => unknown;
-      onStatus?: Callback<ListenerConnectionStatus>;
-    }) {
+    constructor(options: Omit<ListenerOptions<T>, "contextName">) {
       super({
-        element,
+        ...options,
         contextName: name,
-        onChange,
-        onStatus,
       });
     }
   };
@@ -70,45 +154,29 @@ export function createContext<T>(name: string, _initialState?: T) {
 }
 
 export class ContextListener<T> {
-  contextName: string;
-  element: HTMLElement;
-
   resolvePromise?: Resolve<T>;
-
   _status: ListenerConnectionStatus = ListenerConnectionStatus.INITIAL;
-  _onChange: Callback<T>;
-  onStatus?: Callback<ListenerConnectionStatus>;
+  options: ListenerOptions<T>;
 
-  constructor({
-    contextName,
-    element,
-    onChange,
-    onStatus,
-  }: BaseProps & {
-    onChange: Callback<T>;
-    onStatus?: Callback<ListenerConnectionStatus>;
-  }) {
-    this.contextName = contextName;
-    this.element = element;
-    this._onChange = onChange;
-    this.onStatus = onStatus;
+  constructor(options: ListenerOptions<T>) {
+    this.options = options;
   }
 
   set status(next: ListenerConnectionStatus) {
     this._status = next;
-    this.onStatus(next);
+    this.options.onStatus && this.options.onStatus(next);
   }
   get status() {
     return this._status;
   }
 
   onChange = (context: T) => {
-    this._onChange(context);
+    this.options.onChange && this.options.onChange(context);
   };
 
   onConnect = async (context: T) => {
     this.status = ListenerConnectionStatus.CONNECTED;
-    this._onChange(context);
+    this.options.onChange && this.options.onChange(context);
     return new Promise((resolve) => {
       this.resolvePromise = resolve;
     });
@@ -119,6 +187,13 @@ export class ContextListener<T> {
     this.start();
   };
 
+  /**
+   * Starts this Listener
+   *
+   * Dispatches an event in the dom, which bubbles up to the nearest ancestor that can handle it.
+   * If no ancestor handles the event, then will retry a few times and error on failure.
+   *
+   */
   start() {
     let attempts = 0;
     this.status = ListenerConnectionStatus.CONNECTING;
@@ -126,16 +201,16 @@ export class ContextListener<T> {
     const getStatus = () => this.status;
     const tryConnect = () => {
       if (getStatus() !== ListenerConnectionStatus.CONNECTED) {
-        const event = newRequestEvent(this.contextName, {
+        const event = createEvent(this.options.contextName, {
           onConnect: this.onConnect,
           onChange: this.onChange,
           onDisconnect: this.onDisconnect,
         });
-        this.element.dispatchEvent(event);
+        get(this.options.element).dispatchEvent(event);
 
         if (getStatus() !== ListenerConnectionStatus.CONNECTED) {
           attempts++;
-          if (attempts >= 10) {
+          if (attempts >= (get(this.options.attempts) || ATTEMPTS)) {
             clearInterval(interval);
 
             this.status = ListenerConnectionStatus.TIMEOUT;
@@ -148,72 +223,105 @@ export class ContextListener<T> {
     };
 
     tryConnect();
-    interval = setInterval(tryConnect, POLLING);
+    interval = setInterval(tryConnect, get(this.options.pollingMs) || POLLING);
   }
+
+  /**
+   * Sends a signal to a connected provider (if any) to stop sending context changes
+   * to this listener
+   */
   stop() {
     this.resolvePromise && this.resolvePromise();
   }
 }
 
-type BaseProps = {
-  contextName: string;
-  element: HTMLElement;
-};
-
 export class ContextProvider<T> {
-  element: HTMLElement;
-  current: T;
+  options: ProviderOptions<T>;
 
-  contextName: string;
-  consumers: Detail<T>[] = [];
+  current: AccessorOrValue<T>;
+  listeners: Detail<T>[] = [];
 
-  constructor({
-    contextName,
-    element,
-    initialState,
-  }: BaseProps & { initialState?: T }) {
-    this.contextName = contextName;
-    this.element = element;
-    this.current = initialState;
+  constructor(options: ProviderOptions<T>) {
+    this.options = options;
+    this.current = options.initialState;
   }
 
+  /**
+   * Set a new value for context and provides it to all subscribed listeners
+   */
   set context(next: T) {
     this.current = next;
-    this.consumers.forEach((consumer) => consumer.onChange(next));
+    this.listeners.forEach((consumer) => consumer.onChange(next));
   }
 
-  get context() {
-    return this.current;
+  /**
+   * Returns the current value of the context
+   */
+  get context(): T {
+    return get(this.current);
   }
 
+  /**
+   * Starts providing context to listeners lower in the dom.
+   *
+   * Does this by listening for DOM events that bubble up
+   */
   start() {
-    this.element.addEventListener(
-      this.contextName,
-      this.mountConsumer.bind(this)
+    get(this.options.element).addEventListener(
+      this.options.contextName,
+      this.connectListener.bind(this)
     );
   }
-  stop() {
-    this.element.removeEventListener(this.contextName, this.mountConsumer);
 
-    this.consumers.map((consumer) => {
+  /**
+   * Stops providing context to listeners lower in the dom.
+   *
+   * Sends a signal to listeners lower in the dom that they need to reconnect.
+   */
+  stop() {
+    get(this.options.element).removeEventListener(
+      this.options.contextName,
+      this.connectListener
+    );
+
+    this.listeners.map((consumer) => {
       // When a component unloads, it passes off responsibility for re-connecting to a parent back to the child
       consumer.onDisconnect();
     });
   }
 
-  async mountConsumer(event: RequestEvent<T>) {
+  async connectListener(event: RequestEvent<T>) {
     // This supports nested providers by preventing parent elements from receing the request to subscribe
     event.stopPropagation();
-    this.consumers = [...this.consumers, event.detail];
+    this.listeners = [...this.listeners, event.detail];
 
-    await event.detail.onConnect(this.current);
-
-    this.consumers = removeElement(this.consumers, event.detail);
+    try {
+      // This is weird, but it makes sense
+      // when `onConnect` is finished, it means that the child is done and can be disconnected
+      const current = get(this.current);
+      await event.detail.onConnect(current);
+    } finally {
+      this.listeners = removeElement(this.listeners, event.detail);
+    }
   }
 }
+
+//////////////////////////
+//
+//  Helper Functions
+//
+//////////////////////////
 
 function removeElement<T>(arr: T[], element: T) {
   const index = arr.indexOf(element);
   const newArr = arr.slice(0, index).concat(arr.slice(index + 1, arr.length));
   return newArr;
+}
+
+function get<T>(accessor: AccessorOrValue<T>) {
+  return isFunction(accessor) ? accessor() : accessor;
+}
+
+function isFunction<T>(x: any): x is Accessor<T> {
+  return typeof typeof x === "function";
 }
