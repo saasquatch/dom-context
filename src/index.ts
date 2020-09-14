@@ -18,7 +18,7 @@
 export type Detail<T> = {
   /**
    * Should be called by the Provider to let the Listener know it is connected.
-   * 
+   *
    * The Provider should await the return promise to handle listener disconnects
    */
   onConnect: PromiseFactory<T>;
@@ -170,10 +170,12 @@ export class ContextListener<T> {
     return this._status;
   }
 
+  /* called by provider */
   onChange = (context: T) => {
     this.options.onChange && this.options.onChange(context);
   };
 
+  /* called by provider */
   onConnect = async (context: T) => {
     this.status = ListenerConnectionStatus.CONNECTED;
     this.options.onChange && this.options.onChange(context);
@@ -182,6 +184,7 @@ export class ContextListener<T> {
     });
   };
 
+  /* called by provider */
   onDisconnect = () => {
     this.status = ListenerConnectionStatus.CONNECTING;
     this.start();
