@@ -89,11 +89,10 @@ Then("it's status (is)(will be) {string}", function (this:World, status) {
 
 });
 
-Then("it will retry {int} times", function (int) {
-  // Then('it will retry {float} times', function (float) {
-  // Write code here that turns the phrase above into concrete actions
-  return "pending";
-});
+Then("it will retry {int} times", function (this:World, attempts) {
+  this.onStatus.
+  
+ });
 
 Then("it will fail to connect", function () {
   // Write code here that turns the phrase above into concrete actions
