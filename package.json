@@ -12,7 +12,8 @@
   ],
   "scripts": {
     "build": "microbundle",
-    "dev": "microbundle watch"
+    "dev": "microbundle watch",
+    "test": "cucumber-js --require 'test/**/*.ts' --tags \"not @skip\""
   },
   "repository": {
     "type": "git",
@@ -25,6 +26,14 @@
   },
   "homepage": "https://github.com/saasquatch/dom-context#readme",
   "devDependencies": {
-    "microbundle": "^0.12.3"
+    "@types/cucumber": "^6.0.1",
+    "@types/jsdom-global": "^3.0.2",
+    "@types/sinon": "^9.0.5",
+    "cucumber": "^6.0.5",
+    "jsdom": "^16.4.0",
+    "jsdom-global": "^3.0.2",
+    "microbundle": "^0.12.3",
+    "sinon": "^9.0.3",
+    "ts-node": "^9.0.0"
   }
 }
