@@ -92,6 +92,7 @@ export type ProviderOptions<T> = BaseOptions & {
 
 const POLLING = 100;
 const ATTEMPTS = 10;
+export const GlobalProviders = Symbol("dom-context::globalProvider");
 
 export const enum ListenerConnectionStatus {
   /**
@@ -112,6 +113,32 @@ export const enum ListenerConnectionStatus {
   TIMEOUT = "Timeout",
 }
 
+/**
+ * Convenience interface for listening to context
+ */
+type ListenerContextReference<T> = {
+  Listener: {
+    new (o: Omit<ListenerOptions<T>, "contextName">): ContextListener<T>;
+  };
+  listen(o: Omit<ListenerOptions<T>, "contextName">): ContextListener<T>;
+};
+
+/**
+ * Convenience interface for providing context
+ */
+type ProviderContextReference<T> = {
+  Provider: {
+    new (o: Omit<ProviderOptions<T>, "contextName">): ContextProvider<T>;
+  };
+  provide(o: Omit<ProviderOptions<T>, "contextName">): ContextProvider<T>;
+  provideGlobally(next: T): void;
+};
+
+export type ContextReference<T> = ListenerContextReference<T> &
+  ProviderContextReference<T> & {
+    name: string;
+  };
+
 export function createEvent<T>(context: string, promiseFactory: Detail<T>) {
   return new CustomEvent<Detail<T>>(context, {
     bubbles: true,
@@ -129,7 +156,7 @@ export function createEvent<T>(context: string, promiseFactory: Detail<T>) {
 export function createContext<T>(
   name: string,
   initialState?: AccessorOrValue<T>
-) {
+): ContextReference<T> {
   const Provider = class extends ContextProvider<T> {
     constructor(options: Omit<ProviderOptions<T>, "contextName">) {
       super({
@@ -147,9 +174,40 @@ export function createContext<T>(
       });
     }
   };
+
+  /**
+   * Provides this context globally (at the document level)
+   *
+   * Will lazily create and start a provider, or update using existing provider
+   */
+  function provideGlobally(next?: T) {
+    window[GlobalProviders] = window[GlobalProviders] || {};
+    const globalProvider = window[GlobalProviders][name];
+    if (!globalProvider) {
+      // Lazily creates a global provider
+      window[GlobalProviders][name] = new Provider({
+        element: document.documentElement,
+        initialState,
+      }).start();
+    } else {
+      // Updates the exiting global provider
+      globalProvider.context = next;
+    }
+  }
+
+  function listen(options: Omit<ListenerOptions<T>, "contextName">) {
+    return new Listener(options).start();
+  }
+  function provide(options: Omit<ProviderOptions<T>, "contextName">) {
+    return new Provider(options).start();
+  }
   return {
+    name,
     Provider,
     Listener,
+    listen,
+    provide,
+    provideGlobally,
   };
 }
 
@@ -227,6 +285,7 @@ export class ContextListener<T> {
 
     tryConnect();
     interval = setInterval(tryConnect, get(this.options.pollingMs) || POLLING);
+    return this;
   }
 
   /**
@@ -235,18 +294,19 @@ export class ContextListener<T> {
    */
   stop() {
     this.resolvePromise && this.resolvePromise();
+    return this;
   }
 }
 
 export class ContextProvider<T> {
   options: ProviderOptions<T>;
 
-  current: AccessorOrValue<T>;
+  current: T;
   listeners: Detail<T>[] = [];
 
   constructor(options: ProviderOptions<T>) {
     this.options = options;
-    this.current = options.initialState;
+    this.current = get(options.initialState);
   }
 
   /**
@@ -274,6 +334,7 @@ export class ContextProvider<T> {
       this.options.contextName,
       this.connectListener.bind(this)
     );
+    return this;
   }
 
   /**
@@ -291,6 +352,7 @@ export class ContextProvider<T> {
       // When a component unloads, it passes off responsibility for re-connecting to a parent back to the child
       consumer.onDisconnect();
     });
+    return this;
   }
 
   async connectListener(event: RequestEvent<T>) {
@@ -301,7 +363,7 @@ export class ContextProvider<T> {
     try {
       // This is weird, but it makes sense
       // when `onConnect` is finished, it means that the child is done and can be disconnected
-      const current = get(this.current);
+      const current = this.current;
       await event.detail.onConnect(current);
     } finally {
       this.listeners = removeElement(this.listeners, event.detail);
