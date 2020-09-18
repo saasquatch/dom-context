@@ -27,4 +27,4 @@ Many web component frameworks suffer from this same problem.
 
 - [@corpuscule/context](https://github.com/corpusculejs/corpuscule/tree/master/packages/context) - uses the same event handler approach, but uses decorators so it is incompatible with Stencil
 
-- [haunted](https://github.com/matthewp/haunted) - uses the same event handler approach with `haunted.context` event name. Only exposes `Provider` as custom HTML elements, so doesn't support global providing, or connecting providers into non-custom elements.
+- [haunted](https://github.com/matthewp/haunted) - uses the same event handler approach with `haunted.context` event name, but relies on `detail.Context` objects for handling multiple context types. Only exposes `Provider` as custom HTML elements, so doesn't support global providing, or connecting providers into non-custom elements.
