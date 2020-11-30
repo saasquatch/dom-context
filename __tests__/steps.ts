@@ -19,7 +19,7 @@ class World {
 
 const steps: StepDefinitions = ({ given, when, then, and, but }) => {
   let world = new World();
-  let nestedDiv:HTMLElement;
+  let nestedDiv: HTMLElement;
 
   beforeEach(() => (world = new World()));
   afterEach(function () {
@@ -52,16 +52,16 @@ const steps: StepDefinitions = ({ given, when, then, and, but }) => {
       }
       const provider = new world.context.Provider({
         element: el,
-        initialState: providerName
+        initialState: providerName,
       });
       world.providerMap.set(providerName, provider);
     }
   );
 
   and("both providers are started", async () => {
-    for (let provider of world.providerMap.values()) {
-      provider.start();
-    }
+    Array.from(world.providerMap).map(([k, v]) => {
+      v.start();
+    });
   });
 
   when("a listener is started inside of the nested div", () => {
@@ -75,14 +75,16 @@ const steps: StepDefinitions = ({ given, when, then, and, but }) => {
       attempts: world.attempts,
     });
     world.listener.start();
-
   });
 
   then("provider B will connect to the listener", () => {
     expect(world.onChange.mock.calls.length).toBe(1);
     expect(world.onChange.mock.calls[0][0]).toBe("B");
   });
-  but("provider A will not connect", () => {});
+  but("provider A will not connect", () => {
+    const providerA = world.providerMap.get("A");
+    expect(providerA.listeners.length).toBe(0);
+  });
 
   const listenerStart = () => {
     const div = document.createElement("div");
@@ -104,17 +106,17 @@ const steps: StepDefinitions = ({ given, when, then, and, but }) => {
 
   then("the provider will receive the event", () => {});
 
-  then("will call `onConnect` on the listener, providing initial value", () =>{
+  then("will call `onConnect` on the listener, providing initial value", () => {
     expect(world.onChange.mock.calls.length).toBe(1);
     expect(world.onChange.mock.calls[0][0]).toBe(defaultInitial);
-  }
-  );
-
-  given(/^a listener is configured to attempt (\d+) retries$/, function (
-    attempts
-  ) {
-    world.attempts = attempts;
   });
+
+  given(
+    /^a listener is configured to attempt (\d+) retries$/,
+    function (attempts) {
+      world.attempts = attempts;
+    }
+  );
 
   given("there are no providers as ancestors in the DOM", () => {});
 
