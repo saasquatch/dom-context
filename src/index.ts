@@ -301,27 +301,31 @@ export class ContextListener<T> {
 export class ContextProvider<T> {
   options: ProviderOptions<T>;
 
-  current: T;
-  listeners: Detail<T>[] = [];
+  private __current: T;
+  private __listeners: Detail<T>[] = [];
 
   constructor(options: ProviderOptions<T>) {
     this.options = options;
-    this.current = get(options.initialState);
+    this.__current = get(options.initialState);
   }
 
   /**
    * Set a new value for context and provides it to all subscribed listeners
    */
   set context(next: T) {
-    this.current = next;
-    this.listeners.forEach((consumer) => consumer.onChange(next));
+    this.__current = next;
+    this.__listeners.forEach((consumer) => consumer.onChange(next));
   }
 
   /**
    * Returns the current value of the context
    */
   get context(): T {
-    return get(this.current);
+    return get(this.__current);
+  }
+
+  get listeners(): readonly Detail<T>[]{
+    return Object.freeze([...this.__listeners]);
   }
 
   /**
@@ -332,7 +336,7 @@ export class ContextProvider<T> {
   start() {
     get(this.options.element).addEventListener(
       this.options.contextName,
-      this.connectListener.bind(this)
+      this.connectListener
     );
     return this;
   }
@@ -348,25 +352,26 @@ export class ContextProvider<T> {
       this.connectListener
     );
 
-    this.listeners.map((consumer) => {
+    this.__listeners.map((consumer) => {
       // When a component unloads, it passes off responsibility for re-connecting to a parent back to the child
       consumer.onDisconnect();
     });
+    this.__listeners = [];
     return this;
   }
 
-  async connectListener(event: RequestEvent<T>) {
+  connectListener = async (event: RequestEvent<T>) => {
     // This supports nested providers by preventing parent elements from receing the request to subscribe
     event.stopPropagation();
-    this.listeners = [...this.listeners, event.detail];
+    this.__listeners = [...this.__listeners, event.detail];
 
     try {
       // This is weird, but it makes sense
       // when `onConnect` is finished, it means that the child is done and can be disconnected
-      const current = this.current;
+      const current = this.__current;
       await event.detail.onConnect(current);
     } finally {
-      this.listeners = removeElement(this.listeners, event.detail);
+      this.__listeners = removeElement(this.__listeners, event.detail);
     }
   }
 }

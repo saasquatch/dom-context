@@ -6,7 +6,7 @@ import { createContext, ContextProvider, ContextListener } from "../src/index";
 const features = loadFeature("Connection.feature", { loadRelativePath: true });
 
 const defaultInitial = "initial1";
-const defaultContext = createContext<string>("A", defaultInitial);
+const defaultContext = createContext<string>("Default-Context", defaultInitial);
 class World {
   onChange = jest.fn();
   onStatus = jest.fn();
@@ -15,16 +15,23 @@ class World {
   listener: ContextListener<unknown>;
   context = defaultContext;
   attempts: number;
+  nestedDiv = (() => {
+    const el = document.createElement("div");
+    document.body.appendChild(el);
+    return el;
+  })();
 }
 
 const steps: StepDefinitions = ({ given, when, then, and, but }) => {
   let world = new World();
-  let nestedDiv: HTMLElement;
 
-  beforeEach(() => (world = new World()));
-  afterEach(function () {
-    world.provider && world.provider.stop();
+  beforeEach(() => {
+    world = new World();
+  });
+  afterEach(() => {
     world.listener && world.listener.stop();
+    world.provider && world.provider.stop();
+    Array.from(world.providerMap).forEach(([, v]) => v.stop());
     // console.log("done");
   });
 
@@ -45,9 +52,7 @@ const steps: StepDefinitions = ({ given, when, then, and, but }) => {
           el = document.documentElement;
           break;
         case "a nested div":
-          el = document.createElement("div");
-          nestedDiv = el;
-          document.body.appendChild(el);
+          el = world.nestedDiv;
           break;
       }
       const provider = new world.context.Provider({
@@ -59,14 +64,12 @@ const steps: StepDefinitions = ({ given, when, then, and, but }) => {
   );
 
   and("both providers are started", async () => {
-    Array.from(world.providerMap).map(([k, v]) => {
-      v.start();
-    });
+    Array.from(world.providerMap).map(([, v]) => v.start());
   });
 
   when("a listener is started inside of the nested div", () => {
     const div = document.createElement("div");
-    nestedDiv.appendChild(div);
+    world.nestedDiv.appendChild(div);
 
     world.listener = new world.context.Listener({
       element: div,
@@ -78,9 +81,11 @@ const steps: StepDefinitions = ({ given, when, then, and, but }) => {
   });
 
   then("provider B will connect to the listener", () => {
-    expect(world.onChange.mock.calls.length).toBe(1);
-    expect(world.onChange.mock.calls[0][0]).toBe("B");
+    expect(world.onChange).toHaveBeenNthCalledWith(1, "B");
+    // expect(world.onChange.mock.calls.length).toBe(1);
+    // expect(world.onChange.mock.calls[0][0]).toBe("B");
   });
+
   but("provider A will not connect", () => {
     const providerA = world.providerMap.get("A");
     expect(providerA.listeners.length).toBe(0);
@@ -104,11 +109,22 @@ const steps: StepDefinitions = ({ given, when, then, and, but }) => {
   when("a listener is started", listenerStart);
   when("the listener is started", listenerStart);
 
-  then("the provider will receive the event", () => {});
+  given("a listener is connected", listenerStart);
+
+  when("the provider sets a new value", () => {
+    world.provider.context = "new value";
+  });
+
+  then("the listener recieves the new value via `onChange`", () => {
+    expect(world.onChange).toHaveBeenNthCalledWith(2, "new value");
+  });
+
+  then("the provider will be connected to that listener", () => {
+    expect(world.provider.listeners.length).toBe(1);
+  });
 
   then("will call `onConnect` on the listener, providing initial value", () => {
-    expect(world.onChange.mock.calls.length).toBe(1);
-    expect(world.onChange.mock.calls[0][0]).toBe(defaultInitial);
+    expect(world.onChange).toHaveBeenNthCalledWith(1, defaultInitial);
   });
 
   given(
@@ -118,15 +134,15 @@ const steps: StepDefinitions = ({ given, when, then, and, but }) => {
     }
   );
 
-  given("there are no providers as ancestors in the DOM", () => {});
+  // given("there are no providers as ancestors in the DOM", () => {});
 
-  then(/^it's status is "(.*)"$/, () => {});
+  // then(/^it's status is "(.*)"$/, () => {});
 
-  then(/^it will retry (\d+) times$/, () => {});
+  // then(/^it will retry (\d+) times$/, () => {});
 
-  then("it will fail to connect", () => {});
+  // then("it will fail to connect", () => {});
 
-  then(/^it's status will be  "(.*)"$/, () => {});
+  // then(/^it's status will be  "(.*)"$/, () => {});
 };
 
 autoBindSteps([features], [steps]);

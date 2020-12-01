@@ -6,23 +6,22 @@ Feature: Connection between providers and listeners
 
     Context is always overriden by nested values.
 
-
     Scenario: A listener will connect to a provider if it's started
         Given a provider that is connected to the root document
         And the provider is started
         When a listener starts
-        Then the provider will receive the event
+        Then the provider will be connected to that listener
         And will call `onConnect` on the listener, providing initial value
 
-    Scenario: A listener with no provider ancestors will retry until it times out time out
-        Given a listener is configured to attempt 10 retries
-        And there are no providers as ancestors in the DOM
-        Then it's status is "Initial"
-        When the listener is started
-        Then it's status is "Connecting"
-        And it will retry 10 times
-        But it will fail to connect
-        And it's status will be  "Timeout"
+    # Scenario: A listener with no provider ancestors will retry until it times out time out
+    #     Given a listener is configured to attempt 10 retries
+    #     And there are no providers as ancestors in the DOM
+    #     Then it's status is "Initial"
+    #     When the listener is started
+    #     Then it's status is "Connecting"
+    #     And it will retry 10 times
+    #     But it will fail to connect
+    #     And it's status will be  "Timeout"
 
     Scenario: Only the nearest provider will provide values
         Given provider A connected to the document
@@ -31,6 +30,13 @@ Feature: Connection between providers and listeners
         When a listener is started inside of the nested div
         Then provider B will connect to the listener
         But provider A will not connect
+
+    Scenario: Value updates get received by listeners
+        Given a provider that is connected to the root document
+        And the provider is started
+        And a listener is connected
+        When the provider sets a new value
+        Then the listener recieves the new value via `onChange`
 
     # @skip
     # Scenario: Only listeners and providers using the same context name connect

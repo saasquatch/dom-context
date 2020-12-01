@@ -9,6 +9,6 @@ export function e(template:TemplateStringsArray, ...args:unknown[]):RegExp {
   const out = str + template[template.length - 1];
 
   const regexp = new CucumberExpression(out, registry).regexp;
-  console.log("Regenerated REGECP", regexp.toString());
+  // console.log("Generated REGEXP", regexp.toString());
   return regexp;
 }
