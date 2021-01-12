@@ -92,6 +92,7 @@ export type ProviderOptions<T> = BaseOptions & {
 
 const POLLING = 100;
 const ATTEMPTS = 10;
+
 export const GlobalProviders = Symbol("dom-context::globalProvider");
 
 export const enum ListenerConnectionStatus {
@@ -116,7 +117,7 @@ export const enum ListenerConnectionStatus {
 /**
  * Convenience interface for listening to context
  */
-type ListenerContextReference<T> = {
+export type ListenerContextReference<T> = {
   Listener: {
     new (o: Omit<ListenerOptions<T>, "contextName">): ContextListener<T>;
   };
@@ -126,7 +127,7 @@ type ListenerContextReference<T> = {
 /**
  * Convenience interface for providing context
  */
-type ProviderContextReference<T> = {
+export type ProviderContextReference<T> = {
   Provider: {
     new (o: Omit<ProviderOptions<T>, "contextName">): ContextProvider<T>;
   };
@@ -139,7 +140,7 @@ export type ContextReference<T> = ListenerContextReference<T> &
     name: string;
   };
 
-export function createEvent<T>(context: string, promiseFactory: Detail<T>) {
+function createEvent<T>(context: string, promiseFactory: Detail<T>) {
   return new CustomEvent<Detail<T>>(context, {
     bubbles: true,
     cancelable: true,
