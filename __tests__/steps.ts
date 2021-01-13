@@ -3,7 +3,10 @@ import { autoBindSteps, loadFeature, StepDefinitions } from "jest-cucumber";
 import { e } from "../util/expression";
 import { createContext, ContextProvider, ContextListener } from "../src/index";
 
-const features = loadFeature("Connection.feature", { loadRelativePath: true });
+const features = loadFeature("Connection.feature", {
+  loadRelativePath: true,
+  tagFilter: "not @skip",
+});
 
 const defaultInitial = "initial1";
 const defaultContext = createContext<string>("Default-Context", defaultInitial);
@@ -145,4 +148,14 @@ const steps: StepDefinitions = ({ given, when, then, and, but }) => {
   // then(/^it's status will be  "(.*)"$/, () => {});
 };
 
-autoBindSteps([features], [steps]);
+const notSkipped = features.scenarios.filter((s) => !s.tags.includes("@skip"));
+
+autoBindSteps(
+  [
+    {
+      ...features,
+      scenarios: notSkipped,
+    },
+  ],
+  [steps]
+);
