@@ -34,5 +34,8 @@
     "microbundle": "^0.12.3",
     "sinon": "^9.0.3",
     "ts-jest": "^26.4.4"
+  },
+  "dependencies": {
+    "@saasquatch/scoped-autobindsteps": "^1.0.0"
   }
 }
