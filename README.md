@@ -12,7 +12,6 @@ There are open PRs for [stencil-context](https://github.com/petermikitsh/stencil
 
 The long term goal of this project is to get every web component library centralized on using the same technique.
 
-
 ## Getting started
 
 This library is available as `dom-context` on NPM and the expected use case is to import the module as an ES6 module, but other builds are included as well as UMD for getting started with unpkg.
@@ -31,7 +30,7 @@ const contextName = "theme";
 const provider = new ContextProvider({
   name: contextName,
   element: document.documentElement,
-  initialState: "blue"
+  initialState: "blue",
 });
 provider.start();
 
@@ -43,7 +42,7 @@ const listener = new ContextListener({
   name: "example:context",
   element: div,
   onChange: (color) => (div.innerText = color),
-  onStatus: console.log
+  onStatus: console.log,
 });
 listener.start();
 
@@ -53,10 +52,54 @@ setTimeout(() => (provider.context = "orange"), 2000);
 
 See it working in the [live demo](https://codesandbox.io/s/dom-context-example-14ksw)
 
-
 ## Prior art:
 
 [Dependency Injection with Custom Elements by Justin Fagnani](https://www.youtube.com/watch?v=6o5zaKHedTE&feature=youtu.be) is a presentation that explains why this technique is useful for custom elements. Justin could be considered the inventor of the `Document-Centric Dependency Resolution` approach that most of the libraries in the "Related projects" list use.
+
+## Specification
+
+`dom-context` is both a speficiation for custom events and a helper library for listening and firing those events.
+
+```js
+/**
+ * This is the core API for dom-context.
+ *
+ * This sets up the contract between how Providers and Listeners should interact.
+ *
+ * When a Listener fires an event, it includes a `detail` as described here.
+ *
+ * When a Provider receives the event, it should follow this contract:
+ *
+ *  - `onConnect` should be called immediately and awaited to handle listener disconnects
+ *  - `onChange`  should be called whenever the context value changes
+ *  - `onDisconnect` should be called when the provider disconnects
+ *
+ * Everything in this library is just built around simplifying the creation, dispatching and handling of these events,
+ * but the foundation is that mutiple libraries can interact via this core interface without needing to use
+ * the `dom-context` package directly.
+ */
+export type Detail<T> = {
+  /**
+   * Should be called by the Provider to let the Listener know it is connected.
+   *
+   * The Provider should await the return promise to handle listener disconnects
+   */
+  onConnect: PromiseFactory<T>,
+  /**
+   * should be called whenever the context value changes
+   */
+  onChange: OnChange<T>,
+  /**
+   * should be called when the provider disconnects
+   */
+  onDisconnect: () => unknown,
+};
+
+/**
+ * The core API spec for dom-context events. See Detail<T>
+ */
+export type RequestEvent<T> = CustomEvent<Detail<T>>;
+```
 
 ## Related issues:
 
