@@ -144,6 +144,7 @@ function createEvent<T>(context: string, promiseFactory: Detail<T>) {
   return new CustomEvent<Detail<T>>(context, {
     bubbles: true,
     cancelable: true,
+    composed: true,
     detail: promiseFactory,
   });
 }
@@ -325,7 +326,7 @@ export class ContextProvider<T> {
     return get(this.__current);
   }
 
-  get listeners(): readonly Detail<T>[]{
+  get listeners(): readonly Detail<T>[] {
     return Object.freeze([...this.__listeners]);
   }
 
@@ -374,7 +375,7 @@ export class ContextProvider<T> {
     } finally {
       this.__listeners = removeElement(this.__listeners, event.detail);
     }
-  }
+  };
 }
 
 //////////////////////////
