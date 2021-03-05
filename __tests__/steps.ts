@@ -1,7 +1,12 @@
 import { loadFeature, StepDefinitions } from "jest-cucumber";
 import { autoBindSteps } from "@saasquatch/scoped-autobindsteps";
 import { e } from "../util/expression";
-import { createContext, ContextProvider, ContextListener } from "../src/index";
+import {
+  createContext,
+  ContextProvider,
+  ContextListener,
+  ListenerConnectionStatus,
+} from "../src/index";
 
 const defaultInitial = "initial1";
 const defaultContext = createContext<string>("Default-Context", defaultInitial);
@@ -40,7 +45,9 @@ const steps: StepDefinitions = ({ given, when, then, and, but }) => {
   });
 
   given("the provider is started", () => world.provider.start());
-
+  then(/^it's status will be "(.*)"$/, (stts) => {
+    expect(world.listener.status).toBe(stts);
+  });
   given(
     e`provider {word} connected to {}`,
     (providerName: string, element: string) => {
@@ -63,6 +70,17 @@ const steps: StepDefinitions = ({ given, when, then, and, but }) => {
 
   and("both providers are started", async () => {
     Array.from(world.providerMap).map(([, v]) => v.start());
+  });
+
+  then("it should stop polling", () => {
+    expect(world.listener.status).toBe(ListenerConnectionStatus.INITIAL);
+  });
+  then("it won't connect and starts polling", () => {
+    expect(world.listener.status).toBe(ListenerConnectionStatus.CONNECTING);
+  });
+
+  when("the listener is stopped", () => {
+    world.listener.stop();
   });
 
   when("a listener starts in a shadow dom", () => {

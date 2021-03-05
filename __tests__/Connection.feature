@@ -28,6 +28,18 @@ Feature: Connection between providers and listeners
         When the provider sets a new value
         Then the listener recieves the new value via `onChange`
 
+    Scenario: Listener should stop polling when disconnected
+        Given a listener is started inside of the nested div
+        Then it won't connect and starts polling
+        When the listener is stopped
+        Then it should stop polling
+
+    Scenario: Single-attempt listeners should fail immediately
+        Given a listener is configured to attempt 1 retries
+        When a listener is started inside of the nested div
+        Then it's status will be "Timeout"
+
+
     @skip
     Scenario: A listener with no provider ancestors will retry until it times out time out
         Given a listener is configured to attempt 10 retries
