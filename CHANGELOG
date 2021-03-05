@@ -7,7 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
- - Patch for shadow dom
+ - #2 Listeners stop if not connected
+ - #1 Patch for shadow dom
 
 
 ## [1.1.0] - 2021-03-04
