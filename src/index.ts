@@ -247,7 +247,7 @@ export class ContextListener<T> {
 
   /* called by provider */
   onDisconnect = () => {
-    this._status = ListenerConnectionStatus.CONNECTING;
+    this.status = ListenerConnectionStatus.CONNECTING;
     this.start();
   };
 
