@@ -144,6 +144,7 @@ function createEvent<T>(context: string, promiseFactory: Detail<T>) {
   return new CustomEvent<Detail<T>>(context, {
     bubbles: true,
     cancelable: true,
+    composed: true,
     detail: promiseFactory,
   });
 }
@@ -215,6 +216,7 @@ export function createContext<T>(
 export class ContextListener<T> {
   resolvePromise?: Resolve<T>;
   _status: ListenerConnectionStatus = ListenerConnectionStatus.INITIAL;
+  _interval?: NodeJS.Timeout;
   options: ListenerOptions<T>;
 
   constructor(options: ListenerOptions<T>) {
@@ -259,8 +261,9 @@ export class ContextListener<T> {
   start() {
     let attempts = 0;
     this.status = ListenerConnectionStatus.CONNECTING;
-    let interval;
     const getStatus = () => this.status;
+    const maxAttempts = get(this.options.attempts) || ATTEMPTS;
+    const pollingMs = get(this.options.pollingMs) || POLLING;
     const tryConnect = () => {
       if (getStatus() !== ListenerConnectionStatus.CONNECTED) {
         const event = createEvent(this.options.contextName, {
@@ -272,20 +275,25 @@ export class ContextListener<T> {
 
         if (getStatus() !== ListenerConnectionStatus.CONNECTED) {
           attempts++;
-          if (attempts >= (get(this.options.attempts) || ATTEMPTS)) {
-            clearInterval(interval);
+          if (attempts >= maxAttempts) {
+            this._interval && clearInterval(this._interval);
 
             this.status = ListenerConnectionStatus.TIMEOUT;
-            throw new Error(`Gave up trying to connect to provider`);
+            // throw new Error(`Gave up trying to connect to provider`);
           }
         } else if (getStatus() === ListenerConnectionStatus.CONNECTED) {
-          clearInterval(interval);
+          this._interval && clearInterval(this._interval);
         }
       }
     };
 
+    if (pollingMs > 0 && maxAttempts > 1) {
+      this._interval = setInterval(
+        tryConnect,
+        get(this.options.pollingMs) || POLLING
+      );
+    }
     tryConnect();
-    interval = setInterval(tryConnect, get(this.options.pollingMs) || POLLING);
     return this;
   }
 
@@ -294,7 +302,9 @@ export class ContextListener<T> {
    * to this listener
    */
   stop() {
+    this._interval && clearInterval(this._interval);
     this.resolvePromise && this.resolvePromise();
+    this.status = ListenerConnectionStatus.INITIAL;
     return this;
   }
 }
@@ -325,7 +335,7 @@ export class ContextProvider<T> {
     return get(this.__current);
   }
 
-  get listeners(): readonly Detail<T>[]{
+  get listeners(): readonly Detail<T>[] {
     return Object.freeze([...this.__listeners]);
   }
 
@@ -374,7 +384,7 @@ export class ContextProvider<T> {
     } finally {
       this.__listeners = removeElement(this.__listeners, event.detail);
     }
-  }
+  };
 }
 
 //////////////////////////

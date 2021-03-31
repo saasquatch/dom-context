@@ -1,21 +1,21 @@
-import { autoBindSteps, loadFeature, StepDefinitions } from "jest-cucumber";
-
+import { loadFeature, StepDefinitions } from "jest-cucumber";
+import { autoBindSteps } from "@saasquatch/scoped-autobindsteps";
 import { e } from "../util/expression";
-import { createContext, ContextProvider, ContextListener } from "../src/index";
-
-const features = loadFeature("Connection.feature", {
-  loadRelativePath: true,
-  tagFilter: "not @skip",
-});
+import {
+  createContext,
+  ContextProvider,
+  ContextListener,
+  ListenerConnectionStatus,
+} from "../src/index";
 
 const defaultInitial = "initial1";
 const defaultContext = createContext<string>("Default-Context", defaultInitial);
 class World {
   onChange = jest.fn();
   onStatus = jest.fn();
-  provider: ContextProvider<unknown>;
-  providerMap: Map<string, ContextProvider<unknown>> = new Map();
-  listener: ContextListener<unknown>;
+  provider: ContextProvider<any>;
+  providerMap: Map<string, ContextProvider<any>> = new Map();
+  listener: ContextListener<any>;
   context = defaultContext;
   attempts: number;
   nestedDiv = (() => {
@@ -45,7 +45,9 @@ const steps: StepDefinitions = ({ given, when, then, and, but }) => {
   });
 
   given("the provider is started", () => world.provider.start());
-
+  then(/^it's status will be "(.*)"$/, (stts) => {
+    expect(world.listener.status).toBe(stts);
+  });
   given(
     e`provider {word} connected to {}`,
     (providerName: string, element: string) => {
@@ -68,6 +70,34 @@ const steps: StepDefinitions = ({ given, when, then, and, but }) => {
 
   and("both providers are started", async () => {
     Array.from(world.providerMap).map(([, v]) => v.start());
+  });
+
+  then("it should stop polling", () => {
+    expect(world.listener.status).toBe(ListenerConnectionStatus.INITIAL);
+  });
+  then("it won't connect and starts polling", () => {
+    expect(world.listener.status).toBe(ListenerConnectionStatus.CONNECTING);
+  });
+
+  when("the listener is stopped", () => {
+    world.listener.stop();
+  });
+
+  when("a listener starts in a shadow dom", () => {
+    const div = document.createElement("div");
+    world.nestedDiv.appendChild(div);
+
+    // See: https://developer.mozilla.org/en-US/docs/Web/Web_Components/Using_shadow_DOM
+    let shadow = div.attachShadow({ mode: "open" });
+    let para = document.createElement("p");
+    shadow.appendChild(para);
+    world.listener = new world.context.Listener({
+      element: para,
+      onChange: world.onChange,
+      onStatus: world.onStatus,
+      attempts: world.attempts,
+    });
+    world.listener.start();
   });
 
   when("a listener is started inside of the nested div", () => {
@@ -148,14 +178,26 @@ const steps: StepDefinitions = ({ given, when, then, and, but }) => {
   // then(/^it's status will be  "(.*)"$/, () => {});
 };
 
-const notSkipped = features.scenarios.filter((s) => !s.tags.includes("@skip"));
+bindFeature("Connection.feature");
+bindFeature("ShadowDom.feature");
 
-autoBindSteps(
-  [
-    {
-      ...features,
-      scenarios: notSkipped,
-    },
-  ],
-  [steps]
-);
+function bindFeature(file) {
+  const features = loadFeature(file, {
+    loadRelativePath: true,
+    tagFilter: "not @skip",
+  });
+
+  const notSkipped = features.scenarios.filter(
+    (s) => !s.tags.includes("@skip")
+  );
+
+  autoBindSteps(
+    [
+      {
+        ...features,
+        scenarios: notSkipped,
+      },
+    ],
+    [steps]
+  );
+}
