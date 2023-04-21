@@ -5,18 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.2.0] 2021-03-04
+## [1.2.1] 2023-04-20
+
+### Updated
+
+- Updated license copyright to be in line with SaaSquatch open-source policy
+
+## [1.2.0] 2021-03-31
 
 ### Changed
- - #1 Context events are now `composed` and cross through shadow dom
+
+- #1 Context events are now `composed` and cross through shadow dom
 
 ### Fixed
- - #2 Listeners stop if not connected
 
-## [1.1.0] - 2021-01
+- #2 Listeners stop if not connected
+
+## [1.0.1] - 2021-01-12
+
 ### Changed
- - Initial release
 
-## [1.0.0] - 2021-01
+- Initial release
+
+## [1.0.0] - 2021-01-12
+
 ### Added
- - Initial release
+
+- Initial release
+
+[unreleased]: https://github.com/saasquatch/squatch-js/compare/@saasquatch%2Fdom-context@1.2.1...HEAD
+[1.2.1]: https://github.com/saasquatch/squatch-js/compare/v1.2.0...@saasquatch%2Fdom-context@1.2.1
+[1.2.0]: https://github.com/saasquatch/squatch-js/compare/v1.0.1...v1.2.0
+[1.0.1]: https://github.com/saasquatch/squatch-js/compare/V1.0.0...V1.0.1
+[1.0.0]: https://github.com/saasquatch/squatch-js/compare/0.0.5...V1.0.0
+[0.0.5]: https://github.com/saasquatch/squatch-js/compare/0.0.3...0.0.5
+[0.0.3]: https://github.com/saasquatch/dom-context/releases/tag/0.0.3
