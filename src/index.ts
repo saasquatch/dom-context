@@ -43,7 +43,7 @@ export type RequestEvent<T> = CustomEvent<Detail<T>>;
 
 export type Resolve<T> = (value?: T | PromiseLike<T>) => void;
 export type PromiseFactory<T> = (val: T) => Promise<unknown>;
-export type OnChange<T> = (val: T) => unknown;
+export type OnChange<T> = (val: T, prev?: T) => unknown;
 export type Accessor<T> = () => T;
 export type AccessorOrValue<T> = Accessor<T> | T;
 
@@ -232,14 +232,14 @@ export class ContextListener<T> {
   }
 
   /* called by provider */
-  onChange = (context: T) => {
-    this.options.onChange && this.options.onChange(context);
+  onChange = (context: T, previous?: T) => {
+    this.options.onChange && this.options.onChange(context, previous);
   };
 
   /* called by provider */
   onConnect = async (context: T) => {
     this.status = ListenerConnectionStatus.CONNECTED;
-    this.options.onChange && this.options.onChange(context);
+    this.options.onChange && this.options.onChange(context, undefined);
     return new Promise((resolve) => {
       this.resolvePromise = resolve;
     });
@@ -324,8 +324,9 @@ export class ContextProvider<T> {
    * Set a new value for context and provides it to all subscribed listeners
    */
   set context(next: T) {
+    const prev = this.__current;
     this.__current = next;
-    this.__listeners.forEach((consumer) => consumer.onChange(next));
+    this.__listeners.forEach((consumer) => consumer.onChange(next, prev));
   }
 
   /**
