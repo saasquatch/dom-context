@@ -27,6 +27,7 @@ Feature: Connection between providers and listeners
         And a listener is connected
         When the provider sets a new value
         Then the listener recieves the new value via `onChange`
+        And the listener recieves the previous value via `onChange`
 
     Scenario: Listener should stop polling when disconnected
         Given a listener is started inside of the nested div
