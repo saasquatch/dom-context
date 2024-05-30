@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] 2024-05-30
+
+### Changed
+
+- onChange callback now has access to the previous context's value
+
 ## [1.2.1] 2023-04-20
 
 ### Updated
@@ -33,10 +39,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial release
 
-[unreleased]: https://github.com/saasquatch/squatch-js/compare/@saasquatch%2Fdom-context@1.2.1...HEAD
-[1.2.1]: https://github.com/saasquatch/squatch-js/compare/v1.2.0...@saasquatch%2Fdom-context@1.2.1
-[1.2.0]: https://github.com/saasquatch/squatch-js/compare/v1.0.1...v1.2.0
-[1.0.1]: https://github.com/saasquatch/squatch-js/compare/V1.0.0...V1.0.1
-[1.0.0]: https://github.com/saasquatch/squatch-js/compare/0.0.5...V1.0.0
-[0.0.5]: https://github.com/saasquatch/squatch-js/compare/0.0.3...0.0.5
+[unreleased]: https://github.com/saasquatch/dom-context/compare/@saasquatch%2Fdom-context@1.3.0...HEAD
+[1.3.0]: https://github.com/saasquatch/dom-context/compare/v1.2.1...@saasquatch%2Fdom-context@1.3.0
+[1.2.1]: https://github.com/saasquatch/dom-context/compare/v1.2.0...@saasquatch%2Fdom-context@1.2.1
+[1.2.0]: https://github.com/saasquatch/dom-context/compare/v1.0.1...v1.2.0
+[1.0.1]: https://github.com/saasquatch/dom-context/compare/V1.0.0...V1.0.1
+[1.0.0]: https://github.com/saasquatch/dom-context/compare/0.0.5...V1.0.0
+[0.0.5]: https://github.com/saasquatch/dom-context/compare/0.0.3...0.0.5
 [0.0.3]: https://github.com/saasquatch/dom-context/releases/tag/0.0.3
