@@ -239,7 +239,7 @@ export class ContextListener<T> {
   /* called by provider */
   onConnect = async (context: T) => {
     this.status = ListenerConnectionStatus.CONNECTED;
-    this.options.onChange && this.options.onChange(context, undefined);
+    this.options.onChange && this.options.onChange(context, context);
     return new Promise((resolve) => {
       this.resolvePromise = resolve;
     });
